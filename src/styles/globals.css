@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light Mode - Synapse AI Theme */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    
+    /* Primary: Electric Purple */
+    --primary: 262 83% 58%;        /* #7C3AED */
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary: Cyan */
+    --secondary: 189 94% 43%;      /* #06B6D4 */
+    --secondary-foreground: 0 0% 100%;
+    
+    /* Accent: Orange */
+    --accent: 20 95% 54%;          /* #F97316 */
+    --accent-foreground: 0 0% 100%;
+    
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    
+    --ring: 262 83% 58%;           /* Matches primary */
+    
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark Mode - Synapse AI Theme */
+    --background: 240 10% 3.9%;    /* Deep dark */
+    --foreground: 0 0% 98%;
+    
+    /* Primary: Electric Purple (slightly adjusted for dark) */
+    --primary: 262 80% 65%;        /* Lighter purple for dark bg */
+    --primary-foreground: 240 10% 3.9%;
+    
+    /* Secondary: Cyan (brighter for dark) */
+    --secondary: 189 94% 50%;      /* Brighter cyan */
+    --secondary-foreground: 240 10% 3.9%;
+    
+    /* Accent: Orange (adjusted) */
+    --accent: 20 95% 60%;          /* Brighter orange */
+    --accent-foreground: 240 10% 3.9%;
+    
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    
+    --ring: 262 80% 65%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+/* Custom Synapse AI Utilities */
+@layer utilities {
+  .gradient-synapse {
+    background: linear-gradient(135deg, #7C3AED 0%, #06B6D4 100%);
+  }
+  
+  .gradient-synapse-reverse {
+    background: linear-gradient(135deg, #06B6D4 0%, #7C3AED 100%);
+  }
+  
+  .text-gradient-synapse {
+    @apply bg-gradient-to-r from-synapse-purple to-synapse-cyan bg-clip-text text-transparent;
+  }
+  
+  .glow-synapse {
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+  }
+}
