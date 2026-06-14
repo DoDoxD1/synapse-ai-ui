@@ -52,6 +52,24 @@ export interface DiagnosticResult {
 
 /**
  * Summary item returned by GET /diagnostic/history
- * Each entry is a completed diagnostic result for the user.
+ * Matches backend DiagnosticHistoryItem — does NOT include topic_breakdown.
  */
-export type DiagnosticHistoryItem = DiagnosticResult;
+export interface DiagnosticHistoryItem {
+  diagnostic_id: string;
+  exam_type: string;
+  status: string;
+  overall_score: number | null;
+  total_correct: number | null;
+  total_questions: number;
+  time_limit_minutes: number;
+  started_at: string;
+  completed_at: string | null;
+  /** Injected client-side after a submit so the accordion can expand — not from API */
+  topic_breakdown?: TopicBreakdown[];
+}
+
+/** Paginated wrapper returned by GET /diagnostic/history */
+export interface DiagnosticHistoryResponse {
+  total: number;
+  items: DiagnosticHistoryItem[];
+}

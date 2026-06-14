@@ -160,9 +160,10 @@ function PastResultsAccordion({
       {history.map((item, idx) => {
         const isOpen = openId === item.diagnostic_id;
         const takenAt = item.completed_at || item.started_at;
-        const weakCount = item.topic_breakdown.filter((t) => t.strength_level === 'weak').length;
-        const moderateCount = item.topic_breakdown.filter((t) => t.strength_level === 'moderate').length;
-        const strongCount = item.topic_breakdown.filter((t) => t.strength_level === 'strong').length;
+        const breakdown = item.topic_breakdown ?? [];
+        const weakCount = breakdown.filter((t) => t.strength_level === 'weak').length;
+        const moderateCount = breakdown.filter((t) => t.strength_level === 'moderate').length;
+        const strongCount = breakdown.filter((t) => t.strength_level === 'strong').length;
 
         return (
           <div
@@ -193,8 +194,8 @@ function PastResultsAccordion({
 
               {/* Centre: score + mini strength pills */}
               <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
-                <span className={`text-2xl font-black ${scoreColor(item.overall_score)}`}>
-                  {item.overall_score.toFixed(1)}%
+                <span className={`text-2xl font-black ${scoreColor(item.overall_score ?? 0)}`}>
+                  {(item.overall_score ?? 0).toFixed(1)}%
                 </span>
                 <div className="flex gap-1">
                   {weakCount > 0 && (
@@ -227,8 +228,8 @@ function PastResultsAccordion({
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-3 pt-4">
                   {[
-                    { label: 'Score', value: `${item.overall_score.toFixed(1)}%`, cls: scoreColor(item.overall_score) },
-                    { label: 'Correct', value: `${item.total_correct}/${item.total_questions}`, cls: 'text-foreground' },
+                    { label: 'Score', value: `${(item.overall_score ?? 0).toFixed(1)}%`, cls: scoreColor(item.overall_score ?? 0) },
+                    { label: 'Correct', value: `${item.total_correct ?? 0}/${item.total_questions}`, cls: 'text-foreground' },
                     { label: 'Completed', value: formatDateTime(item.completed_at), cls: 'text-foreground' },
                   ].map(({ label, value, cls }) => (
                     <div key={label} className="text-center space-y-0.5">
@@ -239,12 +240,14 @@ function PastResultsAccordion({
                 </div>
 
                 {/* Topic breakdown */}
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Topic Breakdown
-                  </p>
-                  <TopicBreakdownList breakdown={item.topic_breakdown} />
-                </div>
+                {breakdown.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Topic Breakdown
+                    </p>
+                    <TopicBreakdownList breakdown={breakdown} />
+                  </div>
+                )}
               </div>
             )}
           </div>

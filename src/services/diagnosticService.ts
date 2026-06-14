@@ -3,6 +3,7 @@ import type {
   DiagnosticStartResponse,
   DiagnosticResult,
   DiagnosticHistoryItem,
+  DiagnosticHistoryResponse,
 } from '@/types/diagnostic.types';
 
 export const diagnosticService = {
@@ -42,6 +43,8 @@ export const diagnosticService = {
    * Returns a list sorted newest-first.
    */
   getHistory(): Promise<DiagnosticHistoryItem[]> {
-    return apiClient.get<DiagnosticHistoryItem[]>('/diagnostic/history');
+    return apiClient
+      .get<DiagnosticHistoryResponse>('/diagnostic/history')
+      .then((res) => res.items);
   },
 };

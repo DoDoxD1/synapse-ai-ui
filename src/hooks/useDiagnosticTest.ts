@@ -94,8 +94,24 @@ export function useDiagnosticTest() {
     try {
       const data = await diagnosticService.submit(testData.diagnostic_id, answers);
       setResult(data);
-      // Prepend the new result to history so it shows up immediately
-      setHistory((prev) => [data, ...prev.filter((h) => h.diagnostic_id !== data.diagnostic_id)]);
+      // Prepend the new result to history so it shows up immediately without a refetch.
+      // Map DiagnosticResult → DiagnosticHistoryItem (topic_breakdown is optional on the type).
+      setHistory((prev) => {
+        const historyItem: import('@/types/diagnostic.types').DiagnosticHistoryItem = {
+          diagnostic_id: data.diagnostic_id,
+          exam_type: data.exam_type,
+          status: data.status,
+          overall_score: data.overall_score,
+          total_correct: data.total_correct,
+          total_questions: data.total_questions,
+          time_limit_minutes: data.time_limit_minutes,
+          started_at: data.started_at,
+          completed_at: data.completed_at,
+          topic_breakdown: data.topic_breakdown,
+        };
+        return [historyItem, ...prev.filter((h) => h.diagnostic_id !== data.diagnostic_id)];
+      });
+
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to submit test');
     } finally {
