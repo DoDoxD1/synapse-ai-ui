@@ -1,15 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
+import { authService } from '@/services/authService';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { User, Trophy, Target } from 'lucide-react';
+import { User, Trophy, Target, Loader2 } from 'lucide-react';
 
 export function ProfilePage() {
   const user = useAuthStore((state) => state.user);
+  const updateUser = useAuthStore((state) => state.updateUser);
   const [isEditing, setIsEditing] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  // Fetch fresh user data from server on mount
+  useEffect(() => {
+    let cancelled = false;
+    setProfileLoading(true);
+    authService
+      .getCurrentUser()
+      .then((data) => {
+        if (!cancelled) updateUser(data);
+      })
+      .catch(() => {
+        // Silently fall back to cached user data from store
+      })
+      .finally(() => {
+        if (!cancelled) setProfileLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [updateUser]);
 
   const achievements = [
     { icon: '🔥', title: 'Week Warrior', description: '7-day streak achieved' },
@@ -35,7 +56,12 @@ export function ProfilePage() {
             </CardTitle>
             <CardDescription>Update your profile details</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="relative">
+            {profileLoading && (
+              <div className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg z-10">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            )}
             <form className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
