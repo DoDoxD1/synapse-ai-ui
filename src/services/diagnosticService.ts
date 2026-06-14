@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { apiCache } from '@/lib/cache';
 import type {
   DiagnosticStartResponse,
   DiagnosticResult,
@@ -20,14 +21,17 @@ export const diagnosticService = {
    * @param diagnosticId - UUID of the diagnostic test
    * @param answers - map of questionId → selected option key ("A"|"B"|"C"|"D")
    */
-  submit(
+  async submit(
     diagnosticId: string,
     answers: Record<string, string>
   ): Promise<DiagnosticResult> {
-    return apiClient.post<DiagnosticResult>('/diagnostic/submit', {
+    const result = await apiClient.post<DiagnosticResult>('/diagnostic/submit', {
       diagnostic_id: diagnosticId,
       answers,
     });
+    // Invalidate history cache since a new test was submitted
+    apiCache.invalidate('diagnostic_history');
+    return result;
   },
 
   /**
@@ -42,9 +46,15 @@ export const diagnosticService = {
    * Fetch all past diagnostic results for the authenticated user.
    * Returns a list sorted newest-first.
    */
-  getHistory(): Promise<DiagnosticHistoryItem[]> {
-    return apiClient
-      .get<DiagnosticHistoryResponse>('/diagnostic/history')
-      .then((res) => res.items);
+  getHistory(forceRefresh = false): Promise<DiagnosticHistoryItem[]> {
+    return apiCache.fetchWithCache(
+      'diagnostic_history',
+      () =>
+        apiClient
+          .get<DiagnosticHistoryResponse>('/diagnostic/history')
+          .then((res) => res.items),
+      5, // Cache history for 5 minutes
+      forceRefresh
+    );
   },
 };

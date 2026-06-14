@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { apiCache } from '@/lib/cache';
 import type { LoginCredentials, RegisterData, AuthResponse, User } from '@/types/auth.types';
 
 export const authService = {
@@ -11,18 +12,26 @@ export const authService = {
   },
 
   async logout(): Promise<void> {
-    return apiClient.post<void>('/auth/logout');
+    apiCache.clear();
+    return apiClient.post<void>('/auth/logout').catch(() => {});
   },
 
   async refreshToken(refreshToken: string): Promise<AuthResponse> {
     return apiClient.post<AuthResponse>('/auth/refresh', { refresh_token: refreshToken });
   },
 
-  async getCurrentUser(): Promise<User> {
-    return apiClient.get<User>('/users/me');
+  async getCurrentUser(forceRefresh = false): Promise<User> {
+    return apiCache.fetchWithCache(
+      'user_profile',
+      () => apiClient.get<User>('/users/me'),
+      10, // Cache profile for 10 minutes
+      forceRefresh
+    );
   },
 
   async updateProfile(data: Partial<User>): Promise<User> {
-    return apiClient.put<User>('/users/me', data);
+    const user = await apiClient.put<User>('/users/me', data);
+    apiCache.invalidate('user_profile');
+    return user;
   },
 };
