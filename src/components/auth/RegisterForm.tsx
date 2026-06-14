@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthStore } from '@/store/authStore';
 import { authService } from '@/services/authService';
 
@@ -28,6 +29,7 @@ export function RegisterForm() {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -104,11 +106,26 @@ export function RegisterForm() {
 
           <div className="space-y-2">
             <Label htmlFor="exam_type">Exam Type</Label>
-            <Input
-              id="exam_type"
-              placeholder="JEE, NEET, etc."
-              {...register('exam_type')}
-              disabled={isLoading}
+            <Controller
+              name="exam_type"
+              control={control}
+              render={({ field }) => (
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                  <SelectTrigger id="exam_type">
+                    <SelectValue placeholder="Select an exam..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="JEE_MAIN">JEE Main</SelectItem>
+                    <SelectItem value="JEE_ADVANCED">JEE Advanced</SelectItem>
+                    <SelectItem value="NEET">NEET</SelectItem>
+                    <SelectItem value="GATE">GATE</SelectItem>
+                    <SelectItem value="CAT">CAT</SelectItem>
+                    <SelectItem value="UPSC_CSE_PRELIMS">UPSC CSE Prelims</SelectItem>
+                    <SelectItem value="CLAT">CLAT</SelectItem>
+                    <SelectItem value="NDA">NDA</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             />
             {errors.exam_type && (
               <p className="text-sm text-red-500">{errors.exam_type.message}</p>

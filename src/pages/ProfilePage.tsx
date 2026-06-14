@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { User, Trophy, Target, Loader2 } from 'lucide-react';
 
 export function ProfilePage() {
@@ -85,11 +86,21 @@ export function ProfilePage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="exam">Exam Type</Label>
-                  <Input
-                    id="exam"
-                    defaultValue={user?.exam_type}
-                    disabled={!isEditing}
-                  />
+                  <Select defaultValue={user?.exam_type} disabled={!isEditing}>
+                    <SelectTrigger id="exam">
+                      <SelectValue placeholder="Select an exam..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="JEE_MAIN">JEE Main</SelectItem>
+                      <SelectItem value="JEE_ADVANCED">JEE Advanced</SelectItem>
+                      <SelectItem value="NEET">NEET</SelectItem>
+                      <SelectItem value="GATE">GATE</SelectItem>
+                      <SelectItem value="CAT">CAT</SelectItem>
+                      <SelectItem value="UPSC_CSE_PRELIMS">UPSC CSE Prelims</SelectItem>
+                      <SelectItem value="CLAT">CLAT</SelectItem>
+                      <SelectItem value="NDA">NDA</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
