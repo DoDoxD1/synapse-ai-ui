@@ -2,6 +2,7 @@ import { apiClient } from './api';
 import type {
   DiagnosticStartResponse,
   DiagnosticResult,
+  DiagnosticHistoryItem,
 } from '@/types/diagnostic.types';
 
 export const diagnosticService = {
@@ -34,5 +35,13 @@ export const diagnosticService = {
    */
   getResult(diagnosticId: string): Promise<DiagnosticResult> {
     return apiClient.get<DiagnosticResult>(`/diagnostic/${diagnosticId}/result`);
+  },
+
+  /**
+   * Fetch all past diagnostic results for the authenticated user.
+   * Returns a list sorted newest-first.
+   */
+  getHistory(): Promise<DiagnosticHistoryItem[]> {
+    return apiClient.get<DiagnosticHistoryItem[]>('/diagnostic/history');
   },
 };

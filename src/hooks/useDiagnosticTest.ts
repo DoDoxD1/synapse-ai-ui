@@ -3,6 +3,7 @@ import { diagnosticService } from '@/services/diagnosticService';
 import type {
   DiagnosticStartResponse,
   DiagnosticResult,
+  DiagnosticHistoryItem,
 } from '@/types/diagnostic.types';
 
 export function useDiagnosticTest() {
@@ -15,22 +16,43 @@ export function useDiagnosticTest() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasAutoSubmitted = useRef(false);
 
+  // History state
+  const [history, setHistory] = useState<DiagnosticHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  // Fetch history on mount
+  useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true);
+    diagnosticService
+      .getHistory()
+      .then((data) => {
+        if (!cancelled) setHistory(data);
+      })
+      .catch((err: any) => {
+        if (!cancelled)
+          setHistoryError(err.response?.data?.detail || 'Failed to load past results');
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   // Timer logic
   useEffect(() => {
     if (timeLeft <= 0) {
       if (timerRef.current) clearInterval(timerRef.current);
-      // Auto-submit when time runs out (only if test is active and not already submitted)
       if (testData && !result && !hasAutoSubmitted.current) {
         hasAutoSubmitted.current = true;
         handleSubmit();
       }
       return;
     }
-
     timerRef.current = setInterval(() => {
       setTimeLeft((prev) => prev - 1);
     }, 1000);
-
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -72,6 +94,8 @@ export function useDiagnosticTest() {
     try {
       const data = await diagnosticService.submit(testData.diagnostic_id, answers);
       setResult(data);
+      // Prepend the new result to history so it shows up immediately
+      setHistory((prev) => [data, ...prev.filter((h) => h.diagnostic_id !== data.diagnostic_id)]);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to submit test');
     } finally {
@@ -102,6 +126,7 @@ export function useDiagnosticTest() {
     hasAutoSubmitted.current = false;
   }, []);
 
+  // Derived values
   const answeredCount = Object.keys(answers).length;
   const totalQuestions = testData?.total_questions ?? 0;
   const progress = totalQuestions > 0
@@ -111,7 +136,7 @@ export function useDiagnosticTest() {
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
   const formattedTime = `${minutes}:${String(seconds).padStart(2, '0')}`;
-  const isTimeLow = timeLeft > 0 && timeLeft <= 300; // last 5 minutes
+  const isTimeLow = timeLeft > 0 && timeLeft <= 300;
 
   return {
     testData,
@@ -124,6 +149,9 @@ export function useDiagnosticTest() {
     isTimeLow,
     progress,
     answeredCount,
+    history,
+    historyLoading,
+    historyError,
     startTest,
     selectAnswer,
     handleSubmit,

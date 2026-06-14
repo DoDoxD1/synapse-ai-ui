@@ -9,6 +9,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   RotateCcw,
   TrendingUp,
   TrendingDown,
@@ -17,21 +19,17 @@ import {
   Zap,
   Award,
   XCircle,
+  History,
+  CalendarClock,
+  Loader2,
 } from 'lucide-react';
-import type { StrengthLevel } from '@/types/diagnostic.types';
+import type { DiagnosticHistoryItem, DiagnosticResult, StrengthLevel } from '@/types/diagnostic.types';
 
-// ─── Strength helpers ────────────────────────────────────────────────────────
+// ─── Strength config ──────────────────────────────────────────────────────────
 
 const strengthConfig: Record<
   StrengthLevel,
-  {
-    label: string;
-    icon: React.ReactNode;
-    badgeCls: string;
-    borderCls: string;
-    bgCls: string;
-    textCls: string;
-  }
+  { label: string; icon: React.ReactNode; badgeCls: string; borderCls: string; bgCls: string; textCls: string; barCls: string }
 > = {
   weak: {
     label: 'Needs Work',
@@ -40,35 +38,236 @@ const strengthConfig: Record<
     borderCls: 'border-l-4 border-red-500',
     bgCls: 'bg-red-50 dark:bg-red-950/20',
     textCls: 'text-red-600 dark:text-red-400',
+    barCls: 'bg-red-500',
   },
   moderate: {
     label: 'Improving',
     icon: <Minus className="w-3.5 h-3.5" />,
-    badgeCls:
-      'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+    badgeCls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
     borderCls: 'border-l-4 border-amber-500',
     bgCls: 'bg-amber-50 dark:bg-amber-950/20',
     textCls: 'text-amber-600 dark:text-amber-400',
+    barCls: 'bg-amber-500',
   },
   strong: {
     label: 'Strong',
     icon: <TrendingUp className="w-3.5 h-3.5" />,
-    badgeCls:
-      'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+    badgeCls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
     borderCls: 'border-l-4 border-emerald-500',
     bgCls: 'bg-emerald-50 dark:bg-emerald-950/20',
     textCls: 'text-emerald-600 dark:text-emerald-400',
+    barCls: 'bg-emerald-500',
   },
 };
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function formatDateTime(iso: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function scoreColor(score: number) {
+  if (score >= 70) return 'text-emerald-600 dark:text-emerald-400';
+  if (score >= 40) return 'text-amber-600 dark:text-amber-400';
+  return 'text-red-600 dark:text-red-400';
+}
+
+// ─── Topic breakdown rows (shared by history + result screen) ─────────────────
+
+function TopicBreakdownList({ breakdown }: { breakdown: DiagnosticResult['topic_breakdown'] }) {
+  return (
+    <div className="space-y-2.5">
+      {breakdown.map((topic) => {
+        const cfg = strengthConfig[topic.strength_level];
+        return (
+          <div
+            key={topic.topic_id}
+            className={`rounded-xl p-3.5 ${cfg.bgCls} ${cfg.borderCls} space-y-2`}
+          >
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="font-medium text-sm">{topic.topic_name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">{topic.correct}/{topic.total}</span>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.badgeCls}`}>
+                  {cfg.icon}
+                  {cfg.label}
+                </span>
+                <span className={`font-bold text-xs ${cfg.textCls}`}>{topic.score_percent.toFixed(0)}%</span>
+              </div>
+            </div>
+            <div className="w-full bg-white/50 dark:bg-black/20 rounded-full h-1.5">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-700 ${cfg.barCls}`}
+                style={{ width: `${topic.score_percent}%` }}
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Past Results Accordion ───────────────────────────────────────────────────
+
+function PastResultsAccordion({
+  history,
+  historyLoading,
+  historyError,
+}: {
+  history: DiagnosticHistoryItem[];
+  historyLoading: boolean;
+  historyError: string | null;
+}) {
+  // Only one open at a time — store the diagnostic_id of the open panel
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const toggle = (id: string) => setOpenId((prev) => (prev === id ? null : id));
+
+  if (historyLoading) {
+    return (
+      <div className="flex items-center gap-3 text-muted-foreground py-4 justify-center">
+        <Loader2 className="w-5 h-5 animate-spin" />
+        <span className="text-sm">Loading past results…</span>
+      </div>
+    );
+  }
+
+  if (historyError) {
+    return (
+      <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-red-600 dark:text-red-400 text-sm">
+        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        {historyError}
+      </div>
+    );
+  }
+
+  if (history.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground text-center py-3">
+        No past results found. Take your first diagnostic test!
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {history.map((item, idx) => {
+        const isOpen = openId === item.diagnostic_id;
+        const takenAt = item.completed_at || item.started_at;
+        const weakCount = item.topic_breakdown.filter((t) => t.strength_level === 'weak').length;
+        const moderateCount = item.topic_breakdown.filter((t) => t.strength_level === 'moderate').length;
+        const strongCount = item.topic_breakdown.filter((t) => t.strength_level === 'strong').length;
+
+        return (
+          <div
+            key={item.diagnostic_id}
+            className="border rounded-xl overflow-hidden transition-all duration-200"
+          >
+            {/* Accordion header — always visible */}
+            <button
+              id={`history-item-${idx}`}
+              onClick={() => toggle(item.diagnostic_id)}
+              className="w-full flex items-center justify-between px-4 py-3.5 hover:bg-muted/50 transition-colors text-left gap-4"
+            >
+              {/* Left: attempt number + date */}
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-8 h-8 rounded-full gradient-synapse flex-shrink-0 flex items-center justify-center text-white text-xs font-bold">
+                  #{history.length - idx}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-sm truncate">
+                    {item.exam_type.replace(/_/g, ' ')}
+                  </p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                    <CalendarClock className="w-3 h-3 flex-shrink-0" />
+                    {formatDateTime(takenAt)}
+                  </p>
+                </div>
+              </div>
+
+              {/* Centre: score + mini strength pills */}
+              <div className="hidden sm:flex items-center gap-3 flex-shrink-0">
+                <span className={`text-2xl font-black ${scoreColor(item.overall_score)}`}>
+                  {item.overall_score.toFixed(1)}%
+                </span>
+                <div className="flex gap-1">
+                  {weakCount > 0 && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${strengthConfig.weak.badgeCls}`}>
+                      {weakCount} weak
+                    </span>
+                  )}
+                  {moderateCount > 0 && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${strengthConfig.moderate.badgeCls}`}>
+                      {moderateCount} mod
+                    </span>
+                  )}
+                  {strongCount > 0 && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full font-semibold ${strengthConfig.strong.badgeCls}`}>
+                      {strongCount} strong
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: chevron */}
+              <div className="flex-shrink-0 text-muted-foreground">
+                {isOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </div>
+            </button>
+
+            {/* Accordion body */}
+            {isOpen && (
+              <div className="px-4 pb-4 space-y-4 border-t bg-muted/20">
+                {/* Stats row */}
+                <div className="grid grid-cols-3 gap-3 pt-4">
+                  {[
+                    { label: 'Score', value: `${item.overall_score.toFixed(1)}%`, cls: scoreColor(item.overall_score) },
+                    { label: 'Correct', value: `${item.total_correct}/${item.total_questions}`, cls: 'text-foreground' },
+                    { label: 'Completed', value: formatDateTime(item.completed_at), cls: 'text-foreground' },
+                  ].map(({ label, value, cls }) => (
+                    <div key={label} className="text-center space-y-0.5">
+                      <p className="text-xs text-muted-foreground">{label}</p>
+                      <p className={`font-bold text-sm ${cls}`}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Topic breakdown */}
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Topic Breakdown
+                  </p>
+                  <TopicBreakdownList breakdown={item.topic_breakdown} />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Start Screen ─────────────────────────────────────────────────────────────
 
 function StartScreen({
   onStart,
   loading,
+  history,
+  historyLoading,
+  historyError,
 }: {
   onStart: () => void;
   loading: boolean;
+  history: DiagnosticHistoryItem[];
+  historyLoading: boolean;
+  historyError: string | null;
 }) {
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
@@ -83,6 +282,28 @@ function StartScreen({
           across all topics. We'll use this to build your personalised study plan.
         </p>
       </div>
+
+      {/* Past Results — shown regardless of history length so loading/empty states appear */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <History className="w-5 h-5 text-primary" />
+            Past Results
+            {!historyLoading && history.length > 0 && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                {history.length}
+              </Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PastResultsAccordion
+            history={history}
+            historyLoading={historyLoading}
+            historyError={historyError}
+          />
+        </CardContent>
+      </Card>
 
       {/* Why take the test */}
       <Card className="border-2 border-primary/30 bg-primary/5">
@@ -201,7 +422,6 @@ function QuestionCard({
   return (
     <Card id={`question-${question.id}`} className="transition-shadow hover:shadow-md">
       <CardContent className="pt-5 space-y-4">
-        {/* Question header */}
         <div className="flex items-start justify-between gap-3">
           <p className="font-medium leading-relaxed flex-1">
             <span className="text-primary font-bold mr-2">Q{questionNumber}.</span>
@@ -211,8 +431,6 @@ function QuestionCard({
             {question.difficulty}
           </Badge>
         </div>
-
-        {/* Options */}
         <div className="grid sm:grid-cols-2 gap-2">
           {Object.entries(question.options).map(([key, value]) => {
             const isSelected = selected === key;
@@ -289,7 +507,6 @@ function TestScreen({
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b py-3">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          {/* Timer */}
           <div
             className={`flex items-center gap-2 font-mono text-xl font-bold px-4 py-2 rounded-lg border-2
               ${isTimeLow
@@ -301,7 +518,6 @@ function TestScreen({
             {formattedTime}
           </div>
 
-          {/* Progress */}
           <div className="flex-1 min-w-[200px] space-y-1">
             <div className="flex justify-between text-xs text-muted-foreground">
               <span>{answeredCount} of {testData.total_questions} answered</span>
@@ -315,7 +531,6 @@ function TestScreen({
             </div>
           </div>
 
-          {/* Submit */}
           <Button
             id="submit-diagnostic-btn"
             onClick={handleSubmitClick}
@@ -352,21 +567,13 @@ function TestScreen({
                 </p>
               </div>
               <div className="flex gap-3">
-                <Button
-                  id="cancel-submit-btn"
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowConfirm(false)}
-                >
+                <Button id="cancel-submit-btn" variant="outline" className="flex-1" onClick={() => setShowConfirm(false)}>
                   Keep going
                 </Button>
                 <Button
                   id="confirm-submit-btn"
                   className="flex-1 gradient-synapse text-white"
-                  onClick={() => {
-                    setShowConfirm(false);
-                    onSubmit();
-                  }}
+                  onClick={() => { setShowConfirm(false); onSubmit(); }}
                 >
                   Yes, submit
                 </Button>
@@ -382,7 +589,6 @@ function TestScreen({
           const topicAnswered = topic.questions.filter((q) => answers[q.id]).length;
           return (
             <div key={topic.topic_id} className="space-y-4">
-              {/* Topic header */}
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold flex items-center gap-2">
                   <BookOpen className="w-5 h-5 text-primary" />
@@ -392,11 +598,8 @@ function TestScreen({
                   {topicAnswered}/{topic.questions.length} answered
                 </Badge>
               </div>
-
-              {/* Questions */}
               <div className="space-y-4">
                 {topic.questions.map((q, idx) => {
-                  // Calculate global question number
                   const globalIdx =
                     testData.topics
                       .slice(0, testData.topics.indexOf(topic))
@@ -443,16 +646,9 @@ function ResultScreen({
   result: NonNullable<ReturnType<typeof useDiagnosticTest>['result']>;
   onRetake: () => void;
 }) {
-  const weakCount = result.topic_breakdown.filter((t) => t.strength_level === 'weak').length;
+  const weakCount     = result.topic_breakdown.filter((t) => t.strength_level === 'weak').length;
   const moderateCount = result.topic_breakdown.filter((t) => t.strength_level === 'moderate').length;
-  const strongCount = result.topic_breakdown.filter((t) => t.strength_level === 'strong').length;
-
-  const scoreColor =
-    result.overall_score >= 70
-      ? 'text-emerald-600 dark:text-emerald-400'
-      : result.overall_score >= 40
-      ? 'text-amber-600 dark:text-amber-400'
-      : 'text-red-600 dark:text-red-400';
+  const strongCount   = result.topic_breakdown.filter((t) => t.strength_level === 'strong').length;
 
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
@@ -463,19 +659,17 @@ function ResultScreen({
         </div>
         <h1 className="text-4xl font-bold">Diagnostic Results</h1>
         <p className="text-muted-foreground">
-          {result.exam_type.replace('_', ' ')} — completed
+          {result.exam_type.replace(/_/g, ' ')} — completed{' '}
+          <span className="font-medium">{formatDateTime(result.completed_at)}</span>
         </p>
       </div>
 
       {/* Overall Score */}
       <Card className="border-2 border-primary/30 text-center">
         <CardContent className="pt-8 pb-8 space-y-2">
-          <p className="text-sm text-muted-foreground uppercase tracking-widest font-medium">
-            Overall Score
-          </p>
-          <p className={`text-7xl font-black ${scoreColor}`}>
-            {result.overall_score.toFixed(1)}
-            <span className="text-3xl">%</span>
+          <p className="text-sm text-muted-foreground uppercase tracking-widest font-medium">Overall Score</p>
+          <p className={`text-7xl font-black ${scoreColor(result.overall_score)}`}>
+            {result.overall_score.toFixed(1)}<span className="text-3xl">%</span>
           </p>
           <p className="text-muted-foreground">
             {result.total_correct} correct out of {result.total_questions} questions
@@ -486,15 +680,14 @@ function ResultScreen({
       {/* Summary pills */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: 'Needs Work', count: weakCount, cls: strengthConfig.weak.badgeCls, icon: <XCircle className="w-5 h-5" /> },
-          { label: 'Improving', count: moderateCount, cls: strengthConfig.moderate.badgeCls, icon: <Minus className="w-5 h-5" /> },
-          { label: 'Strong', count: strongCount, cls: strengthConfig.strong.badgeCls, icon: <CheckCircle2 className="w-5 h-5" /> },
+          { label: 'Needs Work', count: weakCount,     cls: strengthConfig.weak.badgeCls,     icon: <XCircle    className="w-5 h-5" /> },
+          { label: 'Improving',  count: moderateCount, cls: strengthConfig.moderate.badgeCls, icon: <Minus      className="w-5 h-5" /> },
+          { label: 'Strong',     count: strongCount,   cls: strengthConfig.strong.badgeCls,   icon: <CheckCircle2 className="w-5 h-5" /> },
         ].map(({ label, count, cls, icon }) => (
           <Card key={label}>
             <CardContent className="pt-5 pb-5 flex flex-col items-center gap-1 text-center">
               <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${cls}`}>
-                {icon}
-                {label}
+                {icon}{label}
               </span>
               <p className="text-3xl font-bold mt-1">{count}</p>
               <p className="text-xs text-muted-foreground">topics</p>
@@ -506,63 +699,13 @@ function ResultScreen({
       {/* Topic Breakdown */}
       <div className="space-y-4">
         <h2 className="text-2xl font-bold">Topic Breakdown</h2>
-        <p className="text-sm text-muted-foreground">
-          Sorted by priority — focus on weak areas first.
-        </p>
-        <div className="space-y-3">
-          {result.topic_breakdown.map((topic) => {
-            const cfg = strengthConfig[topic.strength_level];
-            const pct = topic.score_percent;
-            return (
-              <div
-                key={topic.topic_id}
-                className={`rounded-xl p-4 ${cfg.bgCls} ${cfg.borderCls} space-y-3`}
-              >
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <span className="font-semibold">{topic.topic_name}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">
-                      {topic.correct}/{topic.total}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${cfg.badgeCls}`}
-                    >
-                      {cfg.icon}
-                      {cfg.label}
-                    </span>
-                    <span className={`font-bold text-sm ${cfg.textCls}`}>
-                      {pct.toFixed(0)}%
-                    </span>
-                  </div>
-                </div>
-                {/* Progress bar */}
-                <div className="w-full bg-white/50 dark:bg-black/20 rounded-full h-1.5">
-                  <div
-                    className={`h-1.5 rounded-full transition-all duration-700 ${
-                      topic.strength_level === 'strong'
-                        ? 'bg-emerald-500'
-                        : topic.strength_level === 'moderate'
-                        ? 'bg-amber-500'
-                        : 'bg-red-500'
-                    }`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <p className="text-sm text-muted-foreground">Sorted by priority — focus on weak areas first.</p>
+        <TopicBreakdownList breakdown={result.topic_breakdown} />
       </div>
 
       {/* Retake */}
       <div className="flex justify-center pb-6">
-        <Button
-          id="retake-diagnostic-btn"
-          variant="outline"
-          size="lg"
-          onClick={onRetake}
-          className="px-8"
-        >
+        <Button id="retake-diagnostic-btn" variant="outline" size="lg" onClick={onRetake} className="px-8">
           <RotateCcw className="w-4 h-4 mr-2" />
           Take Another Test
         </Button>
@@ -573,14 +716,11 @@ function ResultScreen({
 
 // ─── Error Banner ─────────────────────────────────────────────────────────────
 
-function ErrorBanner({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="flex items-start gap-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-red-700 dark:text-red-400">
       <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
       <p className="flex-1 text-sm">{message}</p>
-      <button onClick={onDismiss} className="text-red-400 hover:text-red-600 flex-shrink-0">
-        <XCircle className="w-4 h-4" />
-      </button>
     </div>
   );
 }
@@ -598,6 +738,9 @@ export function AssessmentPage() {
     isTimeLow,
     progress,
     answeredCount,
+    history,
+    historyLoading,
+    historyError,
     startTest,
     selectAnswer,
     handleSubmit,
@@ -606,19 +749,16 @@ export function AssessmentPage() {
 
   return (
     <div className="space-y-6">
-      {/* Error banner */}
-      {error && (
-        <ErrorBanner
-          message={error}
-          onDismiss={() => {
-            /* errors auto-clear on next action; just show a manual dismiss option */
-          }}
-        />
-      )}
+      {error && <ErrorBanner message={error} />}
 
-      {/* Screens */}
       {!testData && !result && (
-        <StartScreen onStart={startTest} loading={loading} />
+        <StartScreen
+          onStart={startTest}
+          loading={loading}
+          history={history}
+          historyLoading={historyLoading}
+          historyError={historyError}
+        />
       )}
 
       {testData && !result && (

@@ -49,3 +49,9 @@ export interface DiagnosticResult {
   completed_at: string;
   topic_breakdown: TopicBreakdown[];
 }
+
+/**
+ * Summary item returned by GET /diagnostic/history
+ * Each entry is a completed diagnostic result for the user.
+ */
+export type DiagnosticHistoryItem = DiagnosticResult;
