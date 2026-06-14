@@ -14,6 +14,26 @@ export function ProfilePage() {
   const updateUser = useAuthStore((state) => state.updateUser);
   const [isEditing, setIsEditing] = useState(false);
   const [profileLoading, setProfileLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [formData, setFormData] = useState({
+    full_name: user?.full_name || '',
+    exam_type: user?.exam_type || '',
+    target_score: user?.target_score || '',
+    exam_date: user?.exam_date || '',
+  });
+
+  // Sync form data when user profile is fetched
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        full_name: user.full_name || '',
+        exam_type: user.exam_type || '',
+        target_score: user.target_score || '',
+        exam_date: user.exam_date || '',
+      });
+    }
+  }, [user]);
 
   // Fetch fresh user data from server on mount
   useEffect(() => {
@@ -39,6 +59,25 @@ export function ProfilePage() {
     { icon: '⚡', title: 'Speed Demon', description: 'Solved 50 questions in a day' },
     { icon: '🏆', title: 'Quiz Master', description: 'Completed 10 mock tests' },
   ];
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const updatedUser = await authService.updateProfile({
+        full_name: formData.full_name,
+        exam_type: formData.exam_type,
+        target_score: formData.target_score ? Number(formData.target_score) : undefined,
+        // Send exam_date only if not empty, otherwise undefined
+        exam_date: formData.exam_date ? formData.exam_date : undefined,
+      });
+      updateUser(updatedUser);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -68,8 +107,9 @@ export function ProfilePage() {
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
-                  defaultValue={user?.full_name}
-                  disabled={!isEditing}
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  disabled={!isEditing || isSaving}
                 />
               </div>
 
@@ -78,15 +118,20 @@ export function ProfilePage() {
                 <Input
                   id="email"
                   type="email"
-                  defaultValue={user?.email}
-                  disabled={!isEditing}
+                  value={user?.email || ''}
+                  disabled={true} // Email is permanently disabled
+                  readOnly
                 />
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="exam">Exam Type</Label>
-                  <Select defaultValue={user?.exam_type} disabled={!isEditing}>
+                  <Select
+                    value={formData.exam_type}
+                    onValueChange={(val) => setFormData({ ...formData, exam_type: val })}
+                    disabled={true}
+                  >
                     <SelectTrigger id="exam">
                       <SelectValue placeholder="Select an exam..." />
                     </SelectTrigger>
@@ -108,8 +153,9 @@ export function ProfilePage() {
                   <Input
                     id="target"
                     type="number"
-                    defaultValue={user?.target_score || ''}
-                    disabled={!isEditing}
+                    value={formData.target_score}
+                    onChange={(e) => setFormData({ ...formData, target_score: e.target.value })}
+                    disabled={!isEditing || isSaving}
                   />
                 </div>
               </div>
@@ -119,21 +165,38 @@ export function ProfilePage() {
                 <Input
                   id="examDate"
                   type="date"
-                  defaultValue={user?.exam_date || ''}
-                  disabled={!isEditing}
+                  value={formData.exam_date}
+                  onChange={(e) => setFormData({ ...formData, exam_date: e.target.value })}
+                  disabled={!isEditing || isSaving}
                 />
               </div>
 
               <div className="flex gap-2">
                 {isEditing ? (
                   <>
-                    <Button onClick={() => setIsEditing(false)}>Save Changes</Button>
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>
+                    <Button type="button" onClick={handleSave} disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditing(false);
+                        // Reset form to user state on cancel
+                        setFormData({
+                          full_name: user?.full_name || '',
+                          exam_type: user?.exam_type || '',
+                          target_score: user?.target_score || '',
+                          exam_date: user?.exam_date || '',
+                        });
+                      }}
+                      disabled={isSaving}
+                    >
                       Cancel
                     </Button>
                   </>
                 ) : (
-                  <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+                  <Button type="button" onClick={() => setIsEditing(true)}>Edit Profile</Button>
                 )}
               </div>
             </form>
